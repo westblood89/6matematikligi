@@ -36,7 +36,7 @@
       </div>
     </div>
 
-    <!-- Navigation Tabs -->
+    <!-- Tabs -->
     <div class="bg-white rounded-lg shadow-lg mb-6">
       <div class="flex flex-wrap border-b">
         <button onclick="showTab('standings', this)" class="tab-btn px-4 py-3 font-medium text-indigo-600 border-b-2 border-indigo-600">
@@ -46,18 +46,18 @@
           📅 Fikstür
         </button>
         <button onclick="showTab('upcoming', this)" class="tab-btn px-4 py-3 font-medium text-gray-500 hover:text-indigo-600">
-          ⏭️ Gelecek Maçlar
-        </button>
-        <button onclick="showTab('dataentry', this)" class="tab-btn px-4 py-3 font-medium text-gray-500 hover:text-indigo-600">
-          📥 Veri Girişi
+          🗓️ Gelecek Maçlar
         </button>
         <button onclick="showTab('allstandings', this)" class="tab-btn px-4 py-3 font-medium text-gray-500 hover:text-indigo-600">
           🧩 Toplu Puan Durumu
         </button>
+        <button onclick="showTab('dataentry', this)" class="tab-btn px-4 py-3 font-medium text-gray-500 hover:text-indigo-600">
+          📥 Veri Girişi
+        </button>
       </div>
     </div>
 
-    <!-- Standings Tab -->
+    <!-- Standings -->
     <div id="standings" class="tab-content active">
       <div class="bg-white rounded-lg shadow-lg p-6">
         <h2 class="text-2xl font-bold mb-4 text-gray-800">Puan Durumu</h2>
@@ -71,7 +71,7 @@
       </div>
     </div>
 
-    <!-- Fixtures Tab -->
+    <!-- Fixtures -->
     <div id="fixtures" class="tab-content">
       <div class="bg-white rounded-lg shadow-lg p-6">
         <h2 class="text-2xl font-bold mb-4 text-gray-800">Fikstür ve Sonuçlar</h2>
@@ -82,7 +82,7 @@
           </select>
         </div>
 
-        <!-- Yedek İndir / Yükle — Fikstür içinde -->
+        <!-- Backup -->
         <div class="mb-4 flex gap-2">
           <button onclick="downloadBackup()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm">💾 Yedeği İndir</button>
           <label class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm cursor-pointer">📤 Yedekten Yükle
@@ -94,15 +94,20 @@
       </div>
     </div>
 
-    <!-- Upcoming Tab -->
+    <!-- Upcoming -->
     <div id="upcoming" class="tab-content">
       <div class="bg-white rounded-lg shadow-lg p-6">
-        <h2 class="text-2xl font-bold mb-4 text-gray-800">Gelecek Maçlar</h2>
-        <div class="mb-4 flex items-end gap-3">
+        <div class="flex items-end gap-4 mb-4">
           <div>
+            <h2 class="text-2xl font-bold mb-2 text-gray-800">Gelecek Maçlar</h2>
+            <p class="text-sm text-gray-600">Seçtiğiniz haftadaki tüm grupların maçları.</p>
+          </div>
+          <div class="ml-auto">
             <label class="block text-sm font-medium text-gray-700 mb-2">Hafta Seç:</label>
-            <select id="upcomingWeekSelect" class="border border-gray-300 rounded-lg px-3 py-2" onchange="showUpcoming()">
-              <option value="1">1</option>
+            <select id="upcomingWeekSelect" class="border border-gray-300 rounded-lg px-3 py-2" onchange="renderUpcoming()">
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+              <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+              <option value="7">7</option>
             </select>
           </div>
         </div>
@@ -110,15 +115,16 @@
       </div>
     </div>
 
-    <!-- All (Mini) Standings Tab -->
+    <!-- All Standings -->
     <div id="allstandings" class="tab-content">
       <div class="bg-white rounded-lg shadow-lg p-6">
         <h2 class="text-2xl font-bold mb-4 text-gray-800">Toplu Puan Durumu</h2>
-        <div id="allStandingsContent"></div>
+        <p class="text-sm text-gray-600 mb-4">Tüm grupların mini tabloları (geniş ekranda 2 sütun).</p>
+        <div id="allStandingsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
       </div>
     </div>
 
-    <!-- Data Entry Tab -->
+    <!-- Data Entry -->
     <div id="dataentry" class="tab-content">
       <div class="bg-white rounded-lg shadow-lg p-6">
         <h2 class="text-2xl font-bold mb-4 text-gray-800">Veri Girişi (Toplu Yapıştır)</h2>
@@ -173,19 +179,22 @@ BERKEN AREL AYAZ	9"></textarea>
     // matchIndex: { [matchId]: {group, week, home, away} }
     let leagueData = { groups: {}, fixtures: {}, results: {}, matchIndex: {} };
 
+    /* === KAYDET / YÜKLE / YEDEK === */
     function saveData() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(leagueData)); createDownloadableBackup(); }
       catch (e) { console.error('Veri kaydetme hatası:', e); alert('❌ Veriler kaydedilemedi!'); }
     }
-
     function loadData() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) { try { leagueData = { matchIndex:{}, ...JSON.parse(saved) }; if (!leagueData.matchIndex) leagueData.matchIndex = {}; } catch(e){ leagueData = { groups:{}, fixtures:{}, results:{}, matchIndex:{} }; } }
       else { initializeWithSampleData(); saveData(); }
       initializeGroups();
+      // İSİM GÜNCELLEME GÖÇÜ (ALP ALTINTAŞ -> ABDULKADİR ALP ALTINTAŞ)
+      migrateRenameAlpAltintas();
+      // SON GRUBA İKİ ÖĞRENCİ EKLE (N grubu): GÜNEY ŞİMŞEK, BÖLÜM SONU CANAVARI
+      migrateAddTwoToLastGroup();
       populateGroupSelects();
     }
-
     function createDownloadableBackup() {
       const dataStr = JSON.stringify(leagueData, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -205,8 +214,12 @@ BERKEN AREL AYAZ	9"></textarea>
             leagueData = { matchIndex:{}, ...obj }; if (!leagueData.matchIndex) leagueData.matchIndex = {};
             // yeniden indeksle
             Object.keys(leagueData.fixtures||{}).forEach(g => buildMatchIndex(g));
+            // İsim ve grup göçleri
+            migrateRenameAlpAltintas();
+            migrateAddTwoToLastGroup();
             saveData();
-            initializeGroups(); populateGroupSelects(); showFixtures(); showStandings(); showUpcoming(); renderMiniStandingsAll();
+            initializeGroups(); populateGroupSelects(); showFixtures(); showStandings();
+            renderUpcoming(); renderAllStandings();
             alert('✅ Yedekten geri yüklendi');
           } else { alert('❌ Geçersiz yedek dosyası'); }
         } catch { alert('❌ Dosya okunamadı'); }
@@ -215,11 +228,91 @@ BERKEN AREL AYAZ	9"></textarea>
       reader.readAsText(f);
     }
 
+    /* === ÖRNEK GRUPLAR (E ve L) — Sizdeki çalışan yapı korunuyor === */
     function initializeWithSampleData() {
       leagueData.groups['E'] = ['MELİS MİRA OSMANBAŞ','DURU KÜÇÜKSÜMBÜL','HALİL İBRAHİM BAYSOY','TANEM DENİZ MERTLER','POYRAZ ÜNGÜDER','RABİA BAHAR ÇAN','İNCİ JANSELİ KAVAL','BARIŞ TOKGÖZ'];
       leagueData.groups['L'] = ['BERKEN AREL AYAZ','ÖMER KALEBAŞ','ECE NUR EGE','KERİM KARKIN','EGEMEN ÇALIŞKAN','YAĞIZ AVCI','DERİN YALÇINKAYA','ATLAS DENİZ ÇELİK'];
     }
 
+    /* === İSİM GÖÇÜ: ALP ALTINTAŞ -> ABDULKADİR ALP ALTINTAŞ (tüm gruplar ve fikstür) === */
+    function migrateRenameAlpAltintas(){
+      const OLD = 'ALP ALTINTAŞ';
+      const NEW = 'ABDULKADİR ALP ALTINTAŞ';
+      let changed = false;
+
+      // Gruplar
+      Object.keys(leagueData.groups||{}).forEach(g=>{
+        const arr = leagueData.groups[g]||[];
+        for (let i=0;i<arr.length;i++){
+          if ((arr[i]||'').trim().toUpperCase() === OLD){
+            arr[i] = NEW; changed = true;
+          }
+        }
+        leagueData.groups[g] = arr;
+      });
+
+      // Fikstür ve indeks
+      Object.keys(leagueData.fixtures||{}).forEach(g=>{
+        (leagueData.fixtures[g]||[]).forEach(week=>{
+          if (Array.isArray(week.matches)){
+            week.matches.forEach(m=>{
+              if ((m.home||'').toUpperCase()===OLD) m.home=NEW;
+              if ((m.away||'').toUpperCase()===OLD) m.away=NEW;
+            });
+          }
+        });
+      });
+
+      // matchIndex
+      Object.keys(leagueData.matchIndex||{}).forEach(id=>{
+        const mi = leagueData.matchIndex[id];
+        if (!mi) return;
+        if ((mi.home||'').toUpperCase()===OLD) { mi.home=NEW; changed=true; }
+        if ((mi.away||'').toUpperCase()===OLD) { mi.away=NEW; changed=true; }
+      });
+
+      // Global sonuçlar (id -> {homeScore, awayScore, ...})
+      Object.keys(leagueData.results||{}).forEach(matchId=>{
+        const r = leagueData.results[matchId];
+        if (!r) return;
+        if (typeof r === 'object' && !Array.isArray(r) && 'homeScore' in r){
+          if ((r.homeTeam||'').toUpperCase()===OLD){ r.homeTeam = NEW; changed = true; }
+          if ((r.awayTeam||'').toUpperCase()===OLD){ r.awayTeam = NEW; changed = true; }
+        }
+      });
+
+      if (changed) saveData();
+    }
+
+    /* === SON GRUBA 2 ÖĞRENCİ EKLE ve N fikstürünü yeniden üret === */
+    function migrateAddTwoToLastGroup(){
+      const LAST = 'N'; // 6. sınıflarda son harf
+      const addList = ['GÜNEY ŞİMŞEK','BÖLÜM SONU CANAVARI'];
+      if (!leagueData.groups[LAST]) leagueData.groups[LAST] = [];
+
+      let added = false;
+      addList.forEach(name=>{
+        if (!leagueData.groups[LAST].some(n => (n||'').trim().toUpperCase() === name)){
+          leagueData.groups[LAST].push(name);
+          added = true;
+        }
+      });
+
+      if (!added) return; // Zaten eklenmiş, dokunma
+
+      // Bu grubun eski sonuç kayıtlarını temizle
+      Object.keys(leagueData.results||{}).forEach(matchId=>{
+        if (matchId.startsWith(LAST + '_')) delete leagueData.results[matchId];
+      });
+
+      // Bu grubun fikstürünü baştan üret ve index'i güncelle
+      leagueData.fixtures[LAST] = generateFixtures(LAST);
+      buildMatchIndex(LAST, leagueData.fixtures[LAST]);
+
+      saveData();
+    }
+
+    /* === Yardımcılar === */
     function initializeGroups() {
       'ABCDEFGHIJKLMN'.split('').forEach(letter => {
         const cap = 8;
@@ -246,6 +339,7 @@ BERKEN AREL AYAZ	9"></textarea>
           if (home !== 'BYE' && away !== 'BYE') {
             const id = group + '_' + w + '_' + i;
             fixtures[w].matches.push({ id, home, away });
+            leagueData.matchIndex[id] = { group, week: w+1, home, away };
           }
         }
         const fixed = arr[0];
@@ -254,8 +348,6 @@ BERKEN AREL AYAZ	9"></textarea>
         const rotated = [fixed, ...rest];
         for (let i = 0; i < m; i++) arr[i] = rotated[i];
       }
-      // indeks oluştur
-      buildMatchIndex(group, fixtures);
       return fixtures;
     }
 
@@ -272,7 +364,6 @@ BERKEN AREL AYAZ	9"></textarea>
           leagueData.matchIndex[m.id] = { group, week: w.week, home: m.home, away: m.away };
         }
       }
-      // kalıcılık
       saveData();
     }
 
@@ -293,10 +384,9 @@ BERKEN AREL AYAZ	9"></textarea>
           if (dataGroupSelect){ const o3=document.createElement('option'); o3.value=g; o3.textContent=text; dataGroupSelect.appendChild(o3); }
         }
       });
-      // upcoming haftaları doldur
-      populateUpcomingWeeks();
     }
 
+    /* === Fikstür === */
     function showFixtures() {
       const group = document.getElementById('fixtureGroupSelect').value;
       const content = document.getElementById('fixtureContent');
@@ -341,11 +431,10 @@ BERKEN AREL AYAZ	9"></textarea>
       const idx = leagueData.matchIndex[matchId];
       const group = idx?.group || matchId.split('_')[0];
       if (document.getElementById('standingsGroupSelect').value === group) showStandings();
-      // Toplu ve Gelecek Maçlar görünümünü de tazele
-      renderMiniStandingsAll();
-      showUpcoming();
+      if (document.getElementById('allstandings').classList.contains('active')) renderAllStandings();
     }
 
+    /* === Puan Durumu (tek grup) === */
     function calculateStandings(group) {
       const members = (leagueData.groups[group] || []).filter(m => m.trim() !== '');
       const standings = members.map(member => ({ name: member, played: 0, won: 0, drawn: 0, lost: 0, correct: 0, wrong: 0, goalDifference: 0, points: 0 }));
@@ -387,7 +476,6 @@ BERKEN AREL AYAZ	9"></textarea>
       const group = document.getElementById('standingsGroupSelect').value;
       const content = document.getElementById('standingsContent');
       if (!group) { content.innerHTML = '<p class="text-gray-500">Lütfen bir grup seçin.</p>'; return; }
-      // emin olmak için o grubun fikstürü ve indeksini hazırla
       ensureFixturesForGroup(group);
       const standings = calculateStandings(group);
       const qualifyCount = 4;
@@ -425,109 +513,210 @@ BERKEN AREL AYAZ	9"></textarea>
             </div>
           </div>
         </div>`;
-      // Toplu görünümü de güncelle
-      renderMiniStandingsAll();
     }
 
-    // ---------- Gelecek Maçlar ----------
-    function populateUpcomingWeeks(){
-      // max hafta sayısını tüm grupların fikstürlerinden bul
-      let maxWeeks = 0;
-      'ABCDEFGHIJKLMN'.split('').forEach(g=>{
-        ensureFixturesForGroup(g);
-        maxWeeks = Math.max(maxWeeks, (leagueData.fixtures[g]||[]).length);
+    /* === Gelecek Maçlar (tüm gruplar, seçilen hafta) === */
+    function renderUpcoming(){
+      const weekSel = document.getElementById('upcomingWeekSelect');
+      if (!weekSel) return;
+      const week = parseInt(weekSel.value,10);
+      const container = document.getElementById('upcomingContent');
+      if (!container) return;
+
+      Object.keys(leagueData.groups||{}).forEach(g => ensureFixturesForGroup(g));
+
+      const groups = 'ABCDEFGHIJKLMN'.split('').filter(letter => {
+        const arr = leagueData.groups[letter]||[];
+        return arr.some(n=>n && n.trim()!=='');
       });
-      const sel = document.getElementById('upcomingWeekSelect');
-      if (!sel) return;
-      const current = sel.value || '1';
-      sel.innerHTML = '';
-      for (let w=1; w<=maxWeeks; w++){
-        const opt = document.createElement('option');
-        opt.value = String(w); opt.textContent = w;
-        sel.appendChild(opt);
+
+      let html = '';
+      for (const g of groups){
+        const list = (leagueData.fixtures[g]||[]).find(w => w.week === week)?.matches || [];
+        if (!list.length) continue;
+        html += `
+          <div class="mb-5 border border-gray-200 rounded-lg">
+            <div class="px-4 py-2 bg-indigo-50 border-b border-gray-200 font-semibold text-indigo-800">Grup ${g}</div>
+            <div class="p-3 space-y-2">
+              ${list.map(m=>{
+                const res = leagueData.results[m.id];
+                const hs = res?.homeScore;
+                const as = res?.awayScore;
+                const score = (hs===''||as===''||hs==null||as==null) ? '—' : (hs + ' - ' + as);
+                return `<div class="flex items-center bg-gray-50 p-3 rounded">
+                          <span class="flex-1 text-right font-medium">${m.home}</span>
+                          <span class="mx-3 text-gray-600">${score}</span>
+                          <span class="flex-1 font-medium">${m.away}</span>
+                        </div>`;
+              }).join('')}
+            </div>
+          </div>`;
       }
-      if (parseInt(current,10) <= maxWeeks) sel.value = current;
-      showUpcoming();
+      container.innerHTML = html || '<p class="text-gray-500">Bu hafta için listelenecek maç yok.</p>';
     }
 
-    function showUpcoming(){
-      const sel = document.getElementById('upcomingWeekSelect');
-      const week = parseInt(sel?.value || '1',10);
-      const content = document.getElementById('upcomingContent');
-      if (!content) return;
+    /* === Toplu Puan Durumu (mini kartlar, 2 sütun) === */
+    function renderAllStandings(){
+      const grid = document.getElementById('allStandingsGrid');
+      if (!grid) return;
+
       let html = '';
       'ABCDEFGHIJKLMN'.split('').forEach(g=>{
-        const members = (leagueData.groups[g]||[]).filter(m=>m && m.trim()!=='');
-        if (!members.length) return;
+        const arr = leagueData.groups[g]||[];
+        if (!arr.some(n=>n && n.trim()!=='')) return;
         ensureFixturesForGroup(g);
-        const wk = (leagueData.fixtures[g]||[]).find(w=>w.week===week);
-        if (!wk) return;
-        html += `<div class="mb-4 border border-gray-200 rounded-lg">
-          <div class="px-4 py-2 bg-gray-100 font-semibold">Grup ${g} — ${week}. Hafta</div>
-          <div class="p-3 space-y-2">`;
-        wk.matches.forEach(m=>{
-          html += `<div class="flex items-center bg-white rounded px-3 py-2">
-            <span class="flex-1 text-right font-medium">${m.home}</span>
-            <span class="mx-2 text-gray-500">vs</span>
-            <span class="flex-1 font-medium">${m.away}</span>
-          </div>`;
-        });
-        html += `</div></div>`;
-      });
-      if (!html) html = '<p class="text-gray-500">Bu hafta için maç bulunamadı.</p>';
-      content.innerHTML = html;
-    }
-
-    // ---------- Toplu (Mini) Puan Durumu ----------
-    function renderMiniStandingsAll(){
-      const container = document.getElementById('allStandingsContent');
-      if (!container) return;
-      let cards = [];
-      'ABCDEFGHIJKLMN'.split('').forEach(g=>{
-        const hasMember = (leagueData.groups[g]||[]).some(n => n && n.trim() !== '');
-        if (!hasMember) return;
-        ensureFixturesForGroup(g);
-        const s = calculateStandings(g);
-        const rows = s.map((t,i)=>`
+        const st = calculateStandings(g);
+        const rows = st.map((t,i)=>`
           <tr class="${i<4?'qualified':''}">
-            <td class="border px-2 py-1 text-center">${i+1}</td>
-            <td class="border px-2 py-1">${t.name}</td>
-            <td class="border px-2 py-1 text-center">${t.played}</td>
-            <td class="border px-2 py-1 text-center">${t.won}</td>
-            <td class="border px-2 py-1 text-center">${t.drawn}</td>
-            <td class="border px-2 py-1 text-center">${t.lost}</td>
-            <td class="border px-2 py-1 text-center font-semibold">${t.points}</td>
-          </tr>
-        `).join('');
-        const card = `
-          <div class="border border-gray-200 rounded-lg shadow-sm bg-white">
-            <div class="px-4 py-2 bg-indigo-50 text-indigo-800 font-semibold rounded-t-lg">Grup ${g}</div>
+            <td class="border px-2 py-1 text-center text-sm">${i+1}</td>
+            <td class="border px-2 py-1 text-sm">${t.name}</td>
+            <td class="border px-2 py-1 text-center text-sm">${t.points}</td>
+          </tr>`).join('');
+        html += `
+          <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <div class="px-3 py-2 bg-indigo-600 text-white font-semibold">Grup ${g}</div>
             <div class="p-3 overflow-x-auto">
-              <table class="w-full text-sm">
+              <table class="w-full border-collapse">
                 <thead>
-                  <tr class="bg-gray-100 text-gray-700">
-                    <th class="border px-2 py-1">#</th>
-                    <th class="border px-2 py-1 text-left">Öğrenci</th>
-                    <th class="border px-2 py-1">O</th>
-                    <th class="border px-2 py-1">G</th>
-                    <th class="border px-2 py-1">B</th>
-                    <th class="border px-2 py-1">M</th>
-                    <th class="border px-2 py-1">P</th>
+                  <tr class="bg-gray-100">
+                    <th class="border px-2 py-1 text-center text-xs w-10">S</th>
+                    <th class="border px-2 py-1 text-left text-xs">Öğrenci</th>
+                    <th class="border px-2 py-1 text-center text-xs w-10">P</th>
                   </tr>
                 </thead>
                 <tbody>${rows}</tbody>
               </table>
             </div>
           </div>`;
-        cards.push(card);
       });
-      container.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          ${cards.join('')}
-        </div>`;
+
+      grid.innerHTML = html || '<p class="text-gray-500">Gruplar yüklenemedi.</p>';
     }
 
-    // ---------- Sekmeler ----------
+    /* === TR İsim Normalizasyonu + Yapıştırma === */
+    function normName(s){
+      if (!s) return '';
+      return s
+        .replace(/\u00A0/g, ' ')            // NBSP -> normal boşluk
+        .normalize('NFKC')                   // Unicode normalize
+        .trim()
+        .replace(/\s+/g,' ')                // çoklu boşluk -> tek
+        .toLocaleUpperCase('tr-TR');         // Türkçe büyük harf
+    }
+    function parsePasted(text){
+      const map = {};
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      for (const raw of lines){
+        const line = raw.replace(/\u00A0/g,' ').replace(/\s+/g,' ').trim();
+        let m = line.match(/^(.*?)[\t,;:|-]\s*([0-9]+)$/);
+        if (!m) m = line.match(/^(.*)\s+([0-9]+)$/);
+        if (m){
+          const name = normName(m[1]);
+          const score = parseInt(m[2],10);
+          if (!isNaN(score) && name) map[name] = score;
+        }
+      }
+      return map;
+    }
+
+    function previewFromPaste(){
+      const g = document.getElementById('dataGroupSelect').value;
+      const week = parseInt(document.getElementById('dataWeekSelect').value,10);
+      const txt = document.getElementById('pasteInput').value;
+      const area = document.getElementById('previewArea');
+
+      if (!g){ area.innerHTML = '<p class="text-red-600">Lütfen grup seçin.</p>'; return; }
+      ensureFixturesForGroup(g);
+
+      const fixtures = leagueData.fixtures[g] || [];
+      const thisWeek = fixtures.find(w => w.week === week);
+      if (!thisWeek){ area.innerHTML = '<p class="text-red-600">Bu grup için bu hafta yok.</p>'; return; }
+
+      const map = parsePasted(txt);
+      const groupMembers = (leagueData.groups[g]||[]).map(normName);
+      const unknown = Object.keys(map).filter(n => !groupMembers.includes(n));
+
+      let html = '';
+      html += `<div class="mb-3 text-sm text-gray-700">Eşleşen skorlar <b>Hafta ${week}</b> için hazırlanıyor. Listede olmayan öğrenciler otomatik <b>0</b> alacak.</div>`;
+      if (unknown.length){
+        html += `<div class="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm">
+          Bu isimler grupta bulunamadı ve yok sayılacak: <b>${unknown.join(', ')}</b>
+        </div>`;
+      }
+      html += `<div class="overflow-x-auto"><table class="w-full border-collapse">
+        <thead><tr class="bg-gray-100">
+          <th class="border px-2 py-1 text-left">Ev Sahibi</th>
+          <th class="border px-2 py-1 w-20">Skor</th>
+          <th class="border px-2 py-1 w-6"></th>
+          <th class="border px-2 py-1 text-left">Deplasman</th>
+          <th class="border px-2 py-1 w-20">Skor</th>
+        </tr></thead><tbody>`;
+
+      const rows = thisWeek.matches.map(m=>{
+        const hs = map[normName(m.home)] ?? 0;
+        const as = map[normName(m.away)] ?? 0;
+        return `<tr>
+          <td class="border px-2 py-1">${m.home}</td>
+          <td class="border px-2 py-1 text-center">${hs}</td>
+          <td class="border px-2 py-1 text-center">-</td>
+          <td class="border px-2 py-1">${m.away}</td>
+          <td class="border px-2 py-1 text-center">${as}</td>
+        </tr>`;
+      }).join('');
+
+      html += rows + `</tbody></table></div>`;
+
+      window.__previewData = { group:g, week, map };
+      const btn = document.getElementById('btnApplyTop');
+      if (btn) { btn.disabled = false; btn.classList.remove('btn-disabled'); }
+      area.innerHTML = html + `<div class="mt-3 text-xs text-gray-500">Önizleme hazır. Yukarıdaki <b>Sonuçları Uygula</b> düğmesi aktif.</div>`;
+    }
+
+    function applyFromTop(){
+      const pd = window.__previewData;
+      if (!pd) { alert('Önce Eşleştir & Önizle yapın.'); return; }
+      applyPreview(pd.group, pd.week);
+    }
+
+    function applyPreview(g, week){
+      const pd = window.__previewData;
+      if (!pd || pd.group !== g || pd.week !== week) return;
+      ensureFixturesForGroup(g);
+      const thisWeek = (leagueData.fixtures[g]||[]).find(w => w.week === week);
+      if (!thisWeek) return;
+
+      let updated = 0;
+      for (const m of thisWeek.matches){
+        const hs = pd.map[normName(m.home)] ?? 0;
+        const as = pd.map[normName(m.away)] ?? 0;
+        if (!leagueData.results[m.id]) leagueData.results[m.id] = {};
+        leagueData.results[m.id].homeScore = hs;
+        leagueData.results[m.id].awayScore = as;
+        // indeks zaten mevcut, yine de güvence
+        leagueData.matchIndex[m.id] = { group:g, week: week, home: m.home, away: m.away };
+        updated++;
+      }
+      saveData();
+
+      // Fikstür sekmesini zorla aynı gruba ayarla ve haftaya kaydır
+      const fixtureSelect = document.getElementById('fixtureGroupSelect');
+      if (fixtureSelect) fixtureSelect.value = g;
+      showFixtures();
+      const target = document.getElementById('week_' + week);
+      if (target) { target.classList.add('flash'); target.scrollIntoView({behavior:'smooth', block:'start'}); setTimeout(()=>target.classList.remove('flash'),1200); }
+
+      // Puan durumu açık ise güncelle
+      if (document.getElementById('standingsGroupSelect').value === g) showStandings();
+      if (document.getElementById('allstandings').classList.contains('active')) renderAllStandings();
+
+      const area = document.getElementById('previewArea');
+      area.innerHTML = '<div class="p-3 rounded bg-emerald-50 border border-emerald-200 text-emerald-800">✅ ' + updated + ' maç güncellendi. Fikstür (Hafta ' + week + ') ve Puan Durumu yenilendi.</div>';
+      // üst butonu tekrar pasif yap
+      const btn = document.getElementById('btnApplyTop');
+      if (btn) { btn.disabled = true; btn.classList.add('btn-disabled'); }
+    }
+
+    /* === Sekmeler === */
     function showTab(tabName, btn) {
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.getElementById(tabName).classList.add('active');
@@ -535,23 +724,25 @@ BERKEN AREL AYAZ	9"></textarea>
       if (btn) { btn.classList.remove('text-gray-500'); btn.classList.add('text-indigo-600','border-b-2','border-indigo-600'); }
       if (tabName === 'standings') showStandings();
       if (tabName === 'fixtures') showFixtures();
-      if (tabName === 'upcoming') { populateUpcomingWeeks(); showUpcoming(); }
-      if (tabName === 'allstandings') renderMiniStandingsAll();
+      if (tabName === 'upcoming') renderUpcoming();
+      if (tabName === 'allstandings') renderAllStandings();
       if (tabName === 'dataentry') {/* no-op */}
     }
 
-    // ---------- Init ----------
+    /* === Init === */
     document.addEventListener('DOMContentLoaded', () => {
       loadData();
       // açılışta indeksleri tazele
       Object.keys(leagueData.fixtures||{}).forEach(g => buildMatchIndex(g));
       createDownloadableBackup();
-      populateUpcomingWeeks();
-      renderMiniStandingsAll();
       const sel = document.getElementById('standingsGroupSelect');
       if (sel && sel.options.length > 1) { sel.selectedIndex = 1; showStandings(); }
+      // Yeni sekmeler için ilk render
+      renderUpcoming();
+      renderAllStandings();
     });
   </script>
+
   <a id="downloadBackup" style="display:none"></a>
 </body>
 </html>
